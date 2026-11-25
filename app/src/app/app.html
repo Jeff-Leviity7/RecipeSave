@@ -1,0 +1,13 @@
+<header>
+  <span class="brand">RecipeSave</span>
+</header>
+
+<main>
+  <router-outlet />
+</main>
+
+<nav aria-label="Main">
+  @for (tab of tabs; track tab.path) {
+    <a [routerLink]="tab.path" routerLinkActive="active">{{ tab.label }}</a>
+  }
+</nav>

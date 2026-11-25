@@ -1,0 +1,19 @@
+{
+  "name": "recipesave-spike",
+  "private": true,
+  "type": "module",
+  "description": "Milestone 1 spike: compare AI readers, create a Google Doc, build a RecipeSage import file.",
+  "scripts": {
+    "compare": "node --env-file-if-exists=.env reader/compare.mjs",
+    "report": "node reader/compare.mjs --report-only",
+    "jsonld": "node recipesage-import/build.mjs",
+    "drive": "node drive-doc/serve.mjs",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
+    "@google/genai": "^3.6.1",
+    "sharp": "^0.35.5"
+  }
+}

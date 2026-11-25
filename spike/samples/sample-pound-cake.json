@@ -1,0 +1,46 @@
+{
+  "card": "sample-pound-cake",
+  "reader": "sample",
+  "recipe": {
+    "title": "Grandma's Pound Cake",
+    "yield": "1 tube cake",
+    "prepTime": "20 min",
+    "cookTime": "1 hr 10 min",
+    "totalTime": "1 1/2 hours",
+    "ovenTemperature": "325°F",
+    "ingredients": [
+      "1 cup butter, softened",
+      "1/2 cup shortening",
+      "3 cups sugar",
+      "5 eggs",
+      "3 cups flour",
+      "1/2 tsp. baking powder",
+      "1 cup milk",
+      "1 tsp. vanilla",
+      "[Glaze]",
+      "1 cup powdered sugar",
+      "2 Tbsp. lemon juice"
+    ],
+    "instructions": [
+      "Cream butter, shortening and sugar.",
+      "Add eggs one at a time, beating well after each.",
+      "Sift flour and baking powder; add alternately with milk.",
+      "Stir in vanilla.",
+      "Bake in greased tube pan at 325° for 1 hr 10 min.",
+      "[Glaze]",
+      "Mix powdered sugar and lemon juice; drizzle over warm cake."
+    ],
+    "notes": "Christmas 1978. Don't open the oven early!",
+    "source": "Grandma Ruth",
+    "suggestedTypes": [
+      "Cakes"
+    ],
+    "uncertainWords": [
+      "1978"
+    ],
+    "handwritten": true
+  },
+  "labels": [
+    "Christmas"
+  ]
+}

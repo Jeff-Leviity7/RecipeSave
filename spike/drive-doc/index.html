@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drive Doc test</title>
+<style>
+  :root { --bg:#fffdf8; --fg:#23201c; --muted:#6b645b; --line:#e6e0d6; --accent:#b4532a; --ok:#2f6b2f; --err:#a1260d; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1a17; --fg:#f1ece4; --muted:#a89f93; --line:#38342e; --accent:#e98a5c; --ok:#8fd18f; --err:#ff8c73; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, sans-serif; max-width:52rem; }
+  h1 { margin-top:0; } .muted { color:var(--muted); }
+  ol.steps > li { margin-block:14px; }
+  button { font:inherit; padding:6px 12px; margin-right:6px; }
+  textarea { width:100%; box-sizing:border-box; font:13px/1.4 ui-monospace, monospace; }
+  #log { border:1px solid var(--line); padding:8px; white-space:pre-wrap; font:13px/1.4 ui-monospace, monospace; min-height:4em; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<h1>Drive Doc test</h1>
+<p class="muted">Milestone 1 check: from the browser, with only <code>drive.file</code> access, create an editable Google Doc with the card photos inside, in a type folder under a folder you pick.</p>
+
+<ol class="steps">
+  <li><button id="signin" disabled>Sign in with Google</button> <span id="who" class="muted"></span></li>
+  <li><button id="pick" disabled>Pick library folder</button> <span id="folder" class="muted">None picked.</span></li>
+  <li>Recipe (a reader answer from <code>results/</code>, or the sample):<br>
+    <input type="file" id="recipeFile" accept=".json"><br>
+    <textarea id="recipe" rows="10"></textarea></li>
+  <li>Card photos (front, then back): <input type="file" id="photos" accept="image/*" multiple></li>
+  <li><button id="createA" disabled>Create Doc (method A: HTML import)</button>
+      <button id="createB" disabled>Create Doc (method B: Docs API images)</button>
+      <div class="muted">A uploads HTML with the photos embedded and lets Drive convert it. B creates the Doc, then inserts each photo through the Docs API from a briefly link-shared copy. Run A first; B is the fallback if A drops the photos.</div></li>
+</ol>
+
+<h2>Log</h2>
+<div id="log"></div>
+
+<script src="config.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+const DOC_MIME = 'application/vnd.google-apps.document';
+let token = null;
+let library = null; // { id, name }
+
+function logLine(text, cls = '') {
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.innerHTML = text;
+  $('log').appendChild(div);
+}
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// ---------- Google sign-in and folder picker ----------
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true; s.onload = resolve; s.onerror = () => reject(new Error('Could not load ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+let tokenClient;
+async function init() {
+  const cfg = window.RECIPESAVE_CONFIG;
+  if (!cfg) return logLine('Missing drive-doc/config.js. Copy config.example.js to config.js and fill it in.', 'err');
+  await Promise.all([loadScript('https://accounts.google.com/gsi/client'), loadScript('https://apis.google.com/js/api.js')]);
+  await new Promise((resolve) => gapi.load('picker', resolve));
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cfg.clientId,
+    scope: SCOPE,
+    callback: (resp) => {
+      if (resp.error) return logLine('Sign-in failed: ' + esc(resp.error), 'err');
+      token = resp.access_token;
+      $('who').textContent = 'Signed in.';
+      $('pick').disabled = false;
+      logLine('Signed in with drive.file access.', 'ok');
+    },
+  });
+  $('signin').disabled = false;
+}
+
+$('signin').onclick = () => tokenClient.requestAccessToken({ prompt: '' });
+
+$('pick').onclick = () => {
+  const cfg = window.RECIPESAVE_CONFIG;
+  const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(true)
+    .setMimeTypes(FOLDER_MIME);
+  const shared = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(true)
+    .setMimeTypes(FOLDER_MIME)
+    .setEnableDrives(true);
+  new google.picker.PickerBuilder()
+    .setTitle('Choose your recipe library folder')
+    .addView(view)
+    .addView(shared)
+    .setOAuthToken(token)
+    .setDeveloperKey(cfg.apiKey)
+    .setAppId(cfg.appId)
+    .setCallback((data) => {
+      if (data.action !== google.picker.Action.PICKED) return;
+      const doc = data.docs[0];
+      library = { id: doc.id, name: doc.name };
+      $('folder').textContent = doc.name;
+      logLine('Library folder: ' + esc(doc.name), 'ok');
+      updateButtons();
+    })
+    .build()
+    .setVisible(true);
+};
+
+// ---------- Drive and Docs helpers ----------
+
+async function api(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: { Authorization: 'Bearer ' + token, ...(options.headers || {}) } });
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  return res.status === 204 ? null : res.json();
+}
+
+async function findOrCreateFolder(name, parentId) {
+  const q = `'${parentId}' in parents and name = '${name.replace(/'/g, "\\'")}' and mimeType = '${FOLDER_MIME}' and trashed = false`;
+  const found = await api('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name)&q=' + encodeURIComponent(q));
+  if (found.files.length) return found.files[0].id;
+  const made = await api('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parentId] }),
+  });
+  logLine('Created folder ' + esc(name));
+  return made.id;
+}
+
+async function uploadMultipart(metadata, blob) {
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', blob);
+  return api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink', { method: 'POST', body: form });
+}
+
+// Shrinks a photo to a size that suits a Doc page. Returns a JPEG Blob.
+async function shrink(file, maxSide = 1400) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+}
+const blobToDataUri = (blob) => new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); });
+
+// ---------- The Doc ----------
+
+function readRecipe() {
+  const data = JSON.parse($('recipe').value);
+  const recipe = data.recipe ?? data;
+  const types = data.types ?? recipe.suggestedTypes ?? [];
+  const labels = data.labels ?? [];
+  return { recipe, types: types.length ? types : ['Other Desserts'], labels };
+}
+
+function infoLine({ recipe, types, labels }) {
+  const parts = [`Type: ${types.join(', ')}`];
+  if (labels.length) parts.push(`Labels: ${labels.join(', ')}`);
+  if (recipe.source) parts.push(`Source: ${recipe.source}`);
+  return parts.join(' · ');
+}
+
+function recipeHtml(r, info, photoTags) {
+  const list = (items, tag) => {
+    let html = '';
+    let open = false;
+    for (const item of items) {
+      const header = item.match(/^\[(.*)\]$/);
+      if (header) {
+        if (open) html += `</${tag}>`;
+        html += `<h3>${esc(header[1])}</h3>`;
+        open = false;
+      } else {
+        if (!open) html += `<${tag}>`;
+        open = true;
+        html += `<li>${esc(item)}</li>`;
+      }
+    }
+    return html + (open ? `</${tag}>` : '');
+  };
+  const facts = [['Yield', r.yield], ['Prep', r.prepTime], ['Cook', r.cookTime], ['Total', r.totalTime], ['Oven', r.ovenTemperature]]
+    .filter(([, v]) => v).map(([k, v]) => `${k}: ${esc(v)}`).join(' · ');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(r.title)}</title></head><body>
+    <h1>${esc(r.title)}</h1>
+    <p><i>${esc(info)}</i></p>
+    ${facts ? `<p>${facts}</p>` : ''}
+    <h2>Ingredients</h2>${list(r.ingredients, 'ul')}
+    <h2>Instructions</h2>${list(r.instructions, 'ol')}
+    ${r.notes ? `<h2>Notes</h2><p>${esc(r.notes).replace(/\n/g, '<br>')}</p>` : ''}
+    ${photoTags ? `<h2>Card</h2>${photoTags}` : ''}
+  </body></html>`;
+}
+
+async function prepare() {
+  const parsed = readRecipe();
+  const photos = [...$('photos').files];
+  const typeFolders = [];
+  for (const t of parsed.types) typeFolders.push(await findOrCreateFolder(t, library.id));
+  const originals = await findOrCreateFolder('_Originals', library.id);
+
+  // Full-size originals, named after the recipe.
+  const originalIds = [];
+  for (const [i, file] of photos.entries()) {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const up = await uploadMultipart({ name: `${parsed.recipe.title} ${i + 1}.${ext}`, parents: [originals] }, file);
+    originalIds.push(up.id);
+  }
+  if (photos.length) logLine(`Saved ${photos.length} original photo(s) to _Originals.`);
+  return { ...parsed, photos, typeFolders, originalIds };
+}
+
+// Extra types get a Drive shortcut to the Doc instead of a copy.
+async function addShortcuts(docId, title, typeFolders) {
+  for (const folderId of typeFolders.slice(1)) {
+    await api('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: title, mimeType: 'application/vnd.google-apps.shortcut', parents: [folderId], shortcutDetails: { targetId: docId } }),
+    });
+  }
+  if (typeFolders.length > 1) logLine(`Added ${typeFolders.length - 1} shortcut(s) in the other type folder(s).`);
+}
+
+async function countImages(docId) {
+  const doc = await api(`https://docs.googleapis.com/v1/documents/${docId}?fields=inlineObjects`);
+  return Object.keys(doc.inlineObjects || {}).length;
+}
+
+function report(doc, expected, found, started) {
+  const secs = ((performance.now() - started) / 1000).toFixed(1);
+  const cls = found === expected ? 'ok' : 'err';
+  logLine(`<a href="${doc.webViewLink}" target="_blank">${esc(doc.name)}</a>: ${found} of ${expected} photo(s) in the Doc, ${secs} s.`, cls);
+}
+
+async function createWithHtmlImport() {
+  const started = performance.now();
+  const ctx = await prepare();
+  const dataUris = await Promise.all(ctx.photos.map(async (f) => blobToDataUri(await shrink(f))));
+  const tags = dataUris.map((u) => `<p><img src="${u}" style="max-width:100%"></p>`).join('');
+  const html = recipeHtml(ctx.recipe, infoLine(ctx), tags);
+  const doc = await uploadMultipart(
+    { name: ctx.recipe.title, mimeType: DOC_MIME, parents: [ctx.typeFolders[0]], description: infoLine(ctx) },
+    new Blob([html], { type: 'text/html' }),
+  );
+  await addShortcuts(doc.id, ctx.recipe.title, ctx.typeFolders);
+  report(doc, ctx.photos.length, await countImages(doc.id), started);
+}
+
+async function createWithDocsApi() {
+  const started = performance.now();
+  const ctx = await prepare();
+  const html = recipeHtml(ctx.recipe, infoLine(ctx), ctx.photos.length ? '<p>&nbsp;</p>' : '');
+  const doc = await uploadMultipart(
+    { name: ctx.recipe.title + ' (B)', mimeType: DOC_MIME, parents: [ctx.typeFolders[0]], description: infoLine(ctx) },
+    new Blob([html], { type: 'text/html' }),
+  );
+  // The Docs API can only insert an image from a URL it can fetch, so each photo is uploaded at Doc
+  // size, shared by link for a moment, inserted, and then unshared and deleted.
+  const tmp = await findOrCreateFolder('_Originals', library.id);
+  for (const file of ctx.photos) {
+    const small = await uploadMultipart({ name: 'tmp-' + file.name, parents: [tmp] }, await shrink(file));
+    const perm = await api(`https://www.googleapis.com/drive/v3/files/${small.id}/permissions?supportsAllDrives=true`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    });
+    try {
+      const d = await api(`https://docs.googleapis.com/v1/documents/${doc.id}?fields=body(content(endIndex))`);
+      const end = d.body.content.at(-1).endIndex - 1;
+      await api(`https://docs.googleapis.com/v1/documents/${doc.id}:batchUpdate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ requests: [{ insertInlineImage: { uri: `https://drive.google.com/uc?export=download&id=${small.id}`, location: { index: end } } }] }),
+      });
+    } finally {
+      await api(`https://www.googleapis.com/drive/v3/files/${small.id}/permissions/${perm.id}?supportsAllDrives=true`, { method: 'DELETE' }).catch(() => {});
+      await api(`https://www.googleapis.com/drive/v3/files/${small.id}?supportsAllDrives=true`, { method: 'DELETE' }).catch(() => {});
+    }
+  }
+  await addShortcuts(doc.id, ctx.recipe.title, ctx.typeFolders);
+  report(doc, ctx.photos.length, await countImages(doc.id), started);
+}
+
+function run(fn) {
+  return async () => {
+    $('createA').disabled = $('createB').disabled = true;
+    try { await fn(); } catch (e) { logLine(esc(e.message), 'err'); }
+    updateButtons();
+  };
+}
+$('createA').onclick = run(createWithHtmlImport);
+$('createB').onclick = run(createWithDocsApi);
+
+function updateButtons() {
+  let ok = !!(token && library);
+  try { readRecipe(); } catch { ok = false; }
+  $('createA').disabled = $('createB').disabled = !ok;
+}
+$('recipe').addEventListener('input', updateButtons);
+$('recipeFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (f) { $('recipe').value = await f.text(); updateButtons(); }
+});
+
+fetch('../samples/sample-pound-cake.json').then((r) => r.text()).then((t) => { if (!$('recipe').value) $('recipe').value = t; updateButtons(); }).catch(() => {});
+init().catch((e) => logLine(esc(e.message), 'err'));
+</script>
+</body>
+</html>

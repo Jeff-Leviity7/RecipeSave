@@ -1,0 +1,22 @@
+// Starting list of recipe types (one Drive folder each). Editable in Settings.
+export const DEFAULT_RECIPE_TYPES: readonly string[] = [
+  'Appetizers',
+  'Breads',
+  'Breakfast',
+  'Cakes',
+  'Candies',
+  'Canning',
+  'Cookies',
+  'Drinks',
+  'Meats',
+  'Other Desserts',
+  'Pasta and Grains',
+  'Pastry',
+  'Poultry',
+  'Preserves',
+  'Salads',
+  'Sauces',
+  'Seafood',
+  'Sides and Vegetables',
+  'Soups and Stews',
+];

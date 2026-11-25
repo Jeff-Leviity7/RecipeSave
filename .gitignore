@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Spike: personal photos, keys, and outputs stay local
+spike/.env
+spike/cards/
+spike/results/
+spike/recipesage-import/out/
+spike/drive-doc/config.js
