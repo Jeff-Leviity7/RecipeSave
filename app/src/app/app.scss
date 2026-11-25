@@ -10,7 +10,15 @@ header {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 600;
+  color: var(--brand);
+
+  img {
+    display: block;
+  }
 }
 
 main {

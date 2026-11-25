@@ -1,9 +1,10 @@
 :root {
-  --bg: #fffdf8;
+  --bg: #fffdfa;
   --fg: #23201c;
   --muted: #6b645b;
   --line: #e6e0d6;
-  --accent: #b4532a;
+  --accent: #c24e00; /* logo orange, darkened for readable text */
+  --brand: #4a6d45; /* logo green */
   color-scheme: light dark;
 }
 
@@ -13,7 +14,8 @@
     --fg: #f1ece4;
     --muted: #a89f93;
     --line: #38342e;
-    --accent: #e98a5c;
+    --accent: #ff8a3d;
+    --brand: #9cc795;
   }
 }
 
