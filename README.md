@@ -1,8 +1,8 @@
-# RecipeSave
+# RecipeSave7
 
 App to save recipes from cards &amp; books.
 
-RecipeSave is a free, open-source web app, mainly for phones, that scans recipe cards and cookbook pages, has Gemini read them, and files each recipe as an editable Google Doc in your own Google Drive, in a folder for its recipe type. Any of those folders can be exported as a RecipeSage import file or as schema.org recipe JSON.
+RecipeSave7 is a free, open-source web app, mainly for phones, that scans recipe cards and cookbook pages, has Gemini read them, and files each recipe as an editable Google Doc in your own Google Drive, in a folder for its recipe type. Any of those folders can be exported as a RecipeSage import file or as schema.org recipe JSON.
 
 It stores no recipes on its own servers. Every user gets some free scanning each week, paid by the host up to a monthly cap; beyond that, scans use the user's own Gemini key.
 
@@ -33,8 +33,8 @@ The service worker (offline use and "Add to Home Screen") is on only in producti
 
 ## Firebase setup
 
-1. Create a Firebase project and upgrade it to the Blaze plan (Cloud Functions need it). Set a budget alert in Google Cloud Billing.
-2. Put the project id in `.firebaserc`, and the web app config in `app/src/environments/environment.ts`.
+1. The Firebase project is `recipesave-c6973` on the Blaze plan (Cloud Functions need it), already set in `.firebaserc`. The app is served from the Hosting site `recipesave7` (https://recipesave7.web.app); create that site under Hosting if it doesn't exist yet. Set a budget alert in Google Cloud Billing.
+2. Put the web app config in `app/src/environments/environment.ts`.
 3. `npm install -g firebase-tools`, then `firebase login`.
 4. Store the host's Gemini key as a secret: `firebase functions:secrets:set GEMINI_API_KEY`.
 5. Turn on App Check (reCAPTCHA Enterprise) for the web app, and Google sign-in under Authentication.

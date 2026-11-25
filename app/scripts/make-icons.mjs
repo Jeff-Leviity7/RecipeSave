@@ -1,8 +1,8 @@
-// Builds every app icon from the master logo in src/assets/RecipeSave_Logo.jpeg.
+// Builds every app icon from the master logo in src/assets/RecipeSave7_Logo.png.
 //
 //   npm run icons
 //
-// The logo is a round emblem above the word "RecipeSave" on a white background. Icons use only the
+// The logo is a round emblem above the word "RecipeSave7" on a white background. Icons use only the
 // emblem (the word is unreadable at icon sizes), with the white outside the emblem made transparent.
 // Run it again whenever the logo changes; the outputs in public/ are committed.
 
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SOURCE = path.join(appDir, 'src/assets/RecipeSave_Logo.jpeg');
+const SOURCE = path.join(appDir, 'src/assets/RecipeSave7_Logo.png');
 const PUBLIC = path.join(appDir, 'public');
 const ICONS = path.join(PUBLIC, 'icons');
 

@@ -1,4 +1,4 @@
-# RecipeSave app
+# RecipeSave7 app
 
 Angular PWA, generated with Angular CLI 22.3, plus `@angular/pwa` and the Firebase JS SDK.
 
@@ -19,4 +19,4 @@ npm run build    # production build with the service worker, in dist/recipesave/
 
 ## Logo and icons
 
-The master logo is `src/assets/RecipeSave_Logo.jpeg` (it is not shipped in the build). `npm run icons` regenerates everything in `public/` from it: the PWA icons (`icons/icon-*.png`, transparent), maskable icons for Android (`icons/maskable-*.png`), `apple-touch-icon.png`, `favicon.ico` and the PNG favicons, `logo-emblem.png`, a web-sized `logo.png`, and the link-preview `og-image.png`. Icons use only the round emblem, since the word "RecipeSave" can't be read at icon sizes. Run it again whenever the logo changes.
+The master logo is `src/assets/RecipeSave7_Logo.png` (it is not shipped in the build; the original `RecipeSave_Logo.jpeg` without the 7 can be deleted). `npm run icons` regenerates everything in `public/` from it: the PWA icons (`icons/icon-*.png`, transparent), maskable icons for Android (`icons/maskable-*.png`), `apple-touch-icon.png`, `favicon.ico` and the PNG favicons, `logo-emblem.png`, a web-sized `logo.png`, and the link-preview `og-image.png`. Icons use only the round emblem, since the word "RecipeSave7" can't be read at icon sizes. Run it again whenever the logo changes.
